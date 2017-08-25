@@ -15,35 +15,42 @@ from cert_tools import jsonpath_helpers
 from cert_schema import *
 from cert_schema.model import scope_name
 
+from flask import (Flask)
+from flask.ext.themes2 import (Themes)
+
+app = Flask(__name__)
+Themes(app, app_identifier='cert_tools')
+
 OPEN_BADGES_V2_CONTEXT = OPEN_BADGES_V2_CANONICAL_CONTEXT
 BLOCKCERTS_V2_CONTEXT = BLOCKCERTS_V2_CANONICAL_CONTEXT
-
 
 def create_badge_section(config):
     cert_image_path = os.path.join(config.abs_data_dir, config.cert_image_file)
     issuer_image_path = os.path.join(config.abs_data_dir, config.issuer_logo_file)
+    with open('data.json') as data_file:
+        award_obj = json.load(data_file)
+
     badge = {
         'type': 'BadgeClass',
         'id': helpers.URN_UUID_PREFIX + config.badge_id,
-        'name': config.certificate_title,
-        'description': config.certificate_description,
+        'name': award_obj['Award']['Title'],
+        'description': award_obj['Award']['Description'],
         'image': helpers.encode_image(cert_image_path),
         'issuer': {
             'id': config.issuer_id,
             'type': 'Profile',
-            'name': config.issuer_name,
-            'url': config.issuer_url,
-            'email': config.issuer_email,
+            'name': award_obj['Award']['IssuerName'],
+            'url': award_obj['Award']['IssuerUrl'],
+            'email': award_obj['Award']['IssuerContact'],
             'image': helpers.encode_image(issuer_image_path),
             'revocationList': config.revocation_list
         }
     }
 
     badge['criteria'] = {}
-    badge['criteria']['narrative'] = config.criteria_narrative
+    badge['criteria']['narrative'] = award_obj['Criteria']
 
     if config.issuer_signature_lines:
-        signature_lines = []
         signature_lines = []
         for signature_line in config.issuer_signature_lines:
             signature_image_path = os.path.join(config.abs_data_dir, signature_line['signature_image'])
@@ -104,10 +111,9 @@ def create_assertion_section(config):
 
 def create_certificate_template(config):
 
-    if not config.badge_id:
-        badge_uuid = str(uuid.uuid4())
-        print('Generated badge id {0}'.format(badge_uuid))
-        config.badge_id = badge_uuid
+    badge_uuid = str(uuid.uuid4())
+    print('Generated badge id {0}'.format(badge_uuid))
+    config.badge_id = badge_uuid
 
     badge = create_badge_section(config)
     verification = create_verification_section(config)
